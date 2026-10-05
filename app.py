@@ -1,4 +1,5 @@
 import streamlit as st
+import os
 from pypdf import PdfReader
 from docx import Document
 
@@ -41,15 +42,12 @@ st.write(
 # API KEY
 # ==================================================
 
-try:
+GOOGLE_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-    GOOGLE_API_KEY = st.secrets["GEMINI_API_KEY"]
-
-except Exception:
+if not GOOGLE_API_KEY:
 
     st.error("Gemini API key is not configured.")
     st.stop()
-
 
 # ==================================================
 # INITIALIZE GEMINI
