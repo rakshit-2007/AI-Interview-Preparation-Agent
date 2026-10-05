@@ -442,32 +442,37 @@ Do not invent resume information.
 
                 try:
 
-                    result = (
-                        st.session_state.interview_agent.invoke(
-                            {
-                                "messages": [
-                                    {
-                                        "role": "user",
-                                        "content": evaluation_prompt
-                                    }
-                                ]
-                            }
-                        )
-                    )
-
-                    content = result["messages"][-1].content
-
-if isinstance(content, list):
-    evaluation = "".join(
-        item.get("text", "")
-        for item in content
-        if isinstance(item, dict)
+    result = (
+        st.session_state.interview_agent.invoke(
+            {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": evaluation_prompt
+                    }
+                ]
+            }
+        )
     )
-else:
-    evaluation = str(content)
-                    st.session_state.last_evaluation = (
-                        evaluation
-                    )
+
+    content = result["messages"][-1].content
+
+    if isinstance(content, list):
+        evaluation = "".join(
+            item.get("text", "")
+            for item in content
+            if isinstance(item, dict)
+        )
+    else:
+        evaluation = str(content)
+
+    st.session_state.last_evaluation = evaluation
+
+except Exception as e:
+
+    st.error(
+        f"Error evaluating answer: {str(e)}"
+    )
 
                 except Exception as e:
 
