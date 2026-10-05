@@ -6,6 +6,7 @@ from langchain_google_genai import (
     ChatGoogleGenerativeAI,
     GoogleGenerativeAIEmbeddings
 )
+
 from langchain_core.documents import Document as LCDocument
 from langchain_community.vectorstores import FAISS
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -41,8 +42,11 @@ st.write(
 # ==================================================
 
 try:
+
     GOOGLE_API_KEY = st.secrets["GEMINI_API_KEY"]
+
 except Exception:
+
     st.error("Gemini API key is not configured.")
     st.stop()
 
@@ -102,6 +106,10 @@ def extract_resume_text(uploaded_file):
 
     filename = uploaded_file.name.lower()
 
+    # -------------------------------
+    # PDF
+    # -------------------------------
+
     if filename.endswith(".pdf"):
 
         reader = PdfReader(uploaded_file)
@@ -117,6 +125,10 @@ def extract_resume_text(uploaded_file):
 
         return text
 
+    # -------------------------------
+    # DOCX
+    # -------------------------------
+
     elif filename.endswith(".docx"):
 
         document = Document(uploaded_file)
@@ -124,9 +136,14 @@ def extract_resume_text(uploaded_file):
         text = ""
 
         for paragraph in document.paragraphs:
+
             text += paragraph.text + "\n"
 
         return text
+
+    # -------------------------------
+    # Unsupported file
+    # -------------------------------
 
     else:
 
@@ -160,6 +177,10 @@ if uploaded_file is not None:
 
             try:
 
+                # ----------------------------------
+                # Extract resume text
+                # ----------------------------------
+
                 resume_text = extract_resume_text(
                     uploaded_file
                 )
@@ -173,7 +194,7 @@ if uploaded_file is not None:
                     st.stop()
 
                 # ----------------------------------
-                # Split Resume
+                # Split resume
                 # ----------------------------------
 
                 text_splitter = RecursiveCharacterTextSplitter(
@@ -186,7 +207,7 @@ if uploaded_file is not None:
                 )
 
                 # ----------------------------------
-                # Create Documents
+                # Create LangChain documents
                 # ----------------------------------
 
                 documents = [
@@ -200,7 +221,7 @@ if uploaded_file is not None:
                 ]
 
                 # ----------------------------------
-                # Create FAISS
+                # Create FAISS vector database
                 # ----------------------------------
 
                 vector_store = FAISS.from_documents(
@@ -208,13 +229,16 @@ if uploaded_file is not None:
                     embeddings
                 )
 
-                st.session_state.vector_store = vector_store
+                st.session_state.vector_store = (
+                    vector_store
+                )
+
                 st.session_state.resume_name = (
                     uploaded_file.name
                 )
 
                 # ----------------------------------
-                # Retrieval Tool
+                # Resume retrieval tool
                 # ----------------------------------
 
                 @tool
@@ -237,7 +261,7 @@ if uploaded_file is not None:
                     )
 
                 # ----------------------------------
-                # Agent Prompt
+                # Agent system prompt
                 # ----------------------------------
 
                 system_prompt = """
@@ -270,7 +294,7 @@ resume-specific information is needed.
 """
 
                 # ----------------------------------
-                # Create Agent
+                # Create interview agent
                 # ----------------------------------
 
                 interview_agent = create_agent(
@@ -283,9 +307,19 @@ resume-specific information is needed.
                     interview_agent
                 )
 
+                # ----------------------------------
+                # Reset interview
+                # ----------------------------------
+
                 st.session_state.question = None
-                st.session_state.interview_started = False
-                st.session_state.last_evaluation = None
+
+                st.session_state.interview_started = (
+                    False
+                )
+
+                st.session_state.last_evaluation = (
+                    None
+                )
 
                 st.success(
                     "✅ Resume processed successfully!"
@@ -328,44 +362,97 @@ if st.session_state.vector_store is not None:
 # START INTERVIEW
 # ==================================================
 
-try:
+if (
+    st.session_state.vector_store is not None
+    and job_role
+):
 
-    result = (
-        st.session_state.interview_agent.invoke(
-            {
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": start_prompt
-                    }
-                ]
-            }
-        )
-    )
+    if st.button(
+        "🚀 Start Interview",
+        type="primary"
+    ):
 
-    content = result["messages"][-1].content
+        with st.spinner(
+            "Preparing your first interview question..."
+        ):
 
-    if isinstance(content, list):
-        question = "".join(
-            item.get("text", "")
-            for item in content
-            if isinstance(item, dict)
-        )
-    else:
-        question = str(content)
+            start_prompt = f"""
+Start a mock interview for the candidate.
 
-    st.session_state.question = question
-    st.session_state.interview_started = True
-    st.session_state.last_evaluation = None
+Target job role:
+{job_role}
 
-except Exception as e:
+Interview type:
+{interview_type}
 
-    st.error(
-        f"Error starting interview: {str(e)}"
-    )
-    
+Ask the FIRST interview question.
+
+The question should be personalized using
+information from the candidate's resume.
+
+Return only the interview question.
+"""
+
+            try:
+
+                result = (
+                    st.session_state.interview_agent.invoke(
+                        {
+                            "messages": [
+                                {
+                                    "role": "user",
+                                    "content": start_prompt
+                                }
+                            ]
+                        }
+                    )
+                )
+
+                # ----------------------------------
+                # Extract question text
+                # ----------------------------------
+
+                content = result[
+                    "messages"
+                ][-1].content
+
+                if isinstance(content, list):
+
+                    question = "".join(
+                        item.get("text", "")
+                        for item in content
+                        if isinstance(item, dict)
+                    )
+
+                else:
+
+                    question = str(content)
+
+                # ----------------------------------
+                # Save question
+                # ----------------------------------
+
+                st.session_state.question = (
+                    question
+                )
+
+                st.session_state.interview_started = (
+                    True
+                )
+
+                st.session_state.last_evaluation = (
+                    None
+                )
+
+            except Exception as e:
+
+                st.error(
+                    f"Error starting interview: {str(e)}"
+                )
+
+
 # ==================================================
-# DISPLAY QUESTION
+# DISPLAY INTERVIEW QUESTION
 # ==================================================
 
 if (
@@ -381,11 +468,19 @@ if (
         st.session_state.question
     )
 
+    # ----------------------------------------------
+    # Candidate answer
+    # ----------------------------------------------
+
     answer = st.text_area(
         "Your Answer",
         height=180,
         placeholder="Type your interview answer here..."
     )
+
+    # ----------------------------------------------
+    # Submit answer
+    # ----------------------------------------------
 
     if st.button("📊 Submit Answer"):
 
@@ -419,54 +514,76 @@ Candidate answer:
 Provide the evaluation in exactly this structure:
 
 ## Score
+
 Give a score out of 10.
 
 ## What You Did Well
+
 Explain the strong points.
 
 ## What Was Missing
+
 Explain what could be improved.
 
 ## Improvement Suggestions
+
 Give practical suggestions.
 
 ## Better Sample Answer
+
 Provide a stronger sample answer.
 
 ## Follow-up Question
+
 Ask one relevant follow-up interview question.
 
 Use the candidate's resume when relevant.
+
 Do not invent resume information.
 """
 
                 try:
 
-    result = (
-        st.session_state.interview_agent.invoke(
-            {
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": evaluation_prompt
-                    }
-                ]
-            }
-        )
-    )
+                    result = (
+                        st.session_state.interview_agent.invoke(
+                            {
+                                "messages": [
+                                    {
+                                        "role": "user",
+                                        "content": evaluation_prompt
+                                    }
+                                ]
+                            }
+                        )
+                    )
 
-    content = result["messages"][-1].content
+                    # ----------------------------------
+                    # Extract evaluation text
+                    # ----------------------------------
 
-    if isinstance(content, list):
-        evaluation = "".join(
-            item.get("text", "")
-            for item in content
-            if isinstance(item, dict)
-        )
-    else:
-        evaluation = str(content)
+                    content = result[
+                        "messages"
+                    ][-1].content
 
-    st.session_state.last_evaluation = evaluation
+                    if isinstance(content, list):
+
+                        evaluation = "".join(
+                            item.get("text", "")
+                            for item in content
+                            if isinstance(item, dict)
+                        )
+
+                    else:
+
+                        evaluation = str(content)
+
+                    # ----------------------------------
+                    # Save evaluation
+                    # ----------------------------------
+
+                    st.session_state.last_evaluation = (
+                        evaluation
+                    )
 
                 except Exception as e:
 
