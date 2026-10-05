@@ -384,7 +384,6 @@ if isinstance(content, list):
     )
 else:
     question = str(content)
-                )
 
                 st.session_state.question = question
                 st.session_state.interview_started = True
