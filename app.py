@@ -468,12 +468,6 @@ Do not invent resume information.
 
     st.session_state.last_evaluation = evaluation
 
-except Exception as e:
-
-    st.error(
-        f"Error evaluating answer: {str(e)}"
-    )
-
                 except Exception as e:
 
                     st.error(
