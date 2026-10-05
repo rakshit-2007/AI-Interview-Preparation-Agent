@@ -328,74 +328,42 @@ if st.session_state.vector_store is not None:
 # START INTERVIEW
 # ==================================================
 
-if (
-    st.session_state.vector_store is not None
-    and job_role
-):
+try:
 
-    if st.button(
-        "🚀 Start Interview",
-        type="primary"
-    ):
-
-        with st.spinner(
-            "Preparing your first interview question..."
-        ):
-
-            start_prompt = f"""
-Start a mock interview for the candidate.
-
-Target job role:
-{job_role}
-
-Interview type:
-{interview_type}
-
-Ask the FIRST interview question.
-
-The question should be personalized using
-information from the candidate's resume.
-
-Return only the interview question.
-"""
-
-            try:
-
-                result = (
-                    st.session_state.interview_agent.invoke(
-                        {
-                            "messages": [
-                                {
-                                    "role": "user",
-                                    "content": start_prompt
-                                }
-                            ]
-                        }
-                    )
-                )
-
-                content = result["messages"][-1].content
-
-if isinstance(content, list):
-    question = "".join(
-        item.get("text", "")
-        for item in content
-        if isinstance(item, dict)
+    result = (
+        st.session_state.interview_agent.invoke(
+            {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": start_prompt
+                    }
+                ]
+            }
+        )
     )
-else:
-    question = str(content)
 
-                st.session_state.question = question
-                st.session_state.interview_started = True
-                st.session_state.last_evaluation = None
+    content = result["messages"][-1].content
 
-            except Exception as e:
+    if isinstance(content, list):
+        question = "".join(
+            item.get("text", "")
+            for item in content
+            if isinstance(item, dict)
+        )
+    else:
+        question = str(content)
 
-                st.error(
-                    f"Error starting interview: {str(e)}"
-                )
+    st.session_state.question = question
+    st.session_state.interview_started = True
+    st.session_state.last_evaluation = None
 
+except Exception as e:
 
+    st.error(
+        f"Error starting interview: {str(e)}"
+    )
+    
 # ==================================================
 # DISPLAY QUESTION
 # ==================================================
