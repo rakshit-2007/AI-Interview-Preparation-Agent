@@ -374,8 +374,16 @@ Return only the interview question.
                     )
                 )
 
-                question = (
-                    result["messages"][-1].content
+                content = result["messages"][-1].content
+
+if isinstance(content, list):
+    question = "".join(
+        item.get("text", "")
+        for item in content
+        if isinstance(item, dict)
+    )
+else:
+    question = str(content)
                 )
 
                 st.session_state.question = question
@@ -480,10 +488,16 @@ Do not invent resume information.
                         )
                     )
 
-                    evaluation = (
-                        result["messages"][-1].content
-                    )
+                    content = result["messages"][-1].content
 
+if isinstance(content, list):
+    evaluation = "".join(
+        item.get("text", "")
+        for item in content
+        if isinstance(item, dict)
+    )
+else:
+    evaluation = str(content)
                     st.session_state.last_evaluation = (
                         evaluation
                     )
